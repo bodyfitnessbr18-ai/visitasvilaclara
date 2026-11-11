@@ -1,5 +1,5 @@
--- Recria a agenda pública com somente os dados necessários.
--- Não depende da coluna opcional enfermos.ultima_visita.
+-- Agenda pública: até 3 visitas, completando com previsões da fila.
+-- Uma pessoa por quarta-feira; agendamentos existentes ocupam sua data.
 create or replace view public.visitas_publicas
 with (security_barrier = true, security_invoker = false)
 as
@@ -30,58 +30,79 @@ agendadas as (
 contagem as (
   select count(*)::int as total from agendadas
 ),
-ultima_visita as (
-  select e.id, e.nome, e.endereco, e.numero, e.bairro, e.cidade,
-         max(v.data_visita)::date as ultima_data
+fila_base as (
+  select
+    e.id,
+    e.nome,
+    e.endereco,
+    e.numero,
+    e.bairro,
+    e.cidade,
+    max(v.data_visita)::date as ultima_data
   from public.enfermos e
   left join public.visitas v
-    on v.enfermo_id = e.id and v.status = 'realizada'
+    on v.enfermo_id = e.id
+   and v.status = 'realizada'
   where e.ativo = true
+    and not exists (
+      select 1 from agendadas a where a.enfermo_id = e.id
+    )
   group by e.id, e.nome, e.endereco, e.numero, e.bairro, e.cidade
 ),
 fila as (
-  select u.*,
-         row_number() over (order by u.ultima_data nulls first, u.nome) as posicao
-  from ultima_visita u
-  where not exists (select 1 from agendadas a where a.enfermo_id = u.id)
+  select
+    f.*,
+    row_number() over (
+      order by f.ultima_data nulls first, f.nome
+    ) as posicao
+  from fila_base f
 ),
-primeira_quarta as (
-  select h.dia + (
-    (3 - extract(dow from h.dia)::int + 7) % 7
-    + case when extract(dow from h.dia)::int = 3 then 7 else 0 end
-  ) as dia
+proxima_quarta as (
+  select
+    h.dia + ((3 - extract(dow from h.dia)::int + 7) % 7)
+      + case when extract(dow from h.dia)::int = 3 then 7 else 0 end as dia
   from hoje h
 ),
+quartas_candidatas as (
+  select
+    (p.dia + (g.n * 7))::date as dia
+  from proxima_quarta p
+  cross join generate_series(0, 40) as g(n)
+),
 quartas_livres as (
-  select gs::date as dia,
-         row_number() over (order by gs) as posicao
-  from primeira_quarta q
-  cross join generate_series(q.dia::timestamp, (q.dia + 140)::timestamp, interval '7 days') gs
-  where not exists (select 1 from agendadas a where a.data_visita = gs::date)
+  select
+    q.dia,
+    row_number() over (order by q.dia) as posicao
+  from quartas_candidatas q
+  where not exists (
+    select 1 from agendadas a where a.data_visita = q.dia
+  )
 ),
 previstas as (
-  select q.dia::date as data_visita,
-         null::text as horario,
-         f.nome::text as enfermo_nome,
-         concat_ws(', ',
-           nullif(trim(f.endereco), ''),
-           nullif(trim(f.numero), ''),
-           nullif(trim(f.bairro), ''),
-           nullif(trim(f.cidade), '')
-         ) as endereco_completo,
-         'Previsão da fila'::text as origem,
-         f.id as enfermo_id
+  select
+    q.dia as data_visita,
+    null::text as horario,
+    f.nome::text as enfermo_nome,
+    concat_ws(', ',
+      nullif(trim(f.endereco), ''),
+      nullif(trim(f.numero), ''),
+      nullif(trim(f.bairro), ''),
+      nullif(trim(f.cidade), '')
+    ) as endereco_completo,
+    'Previsão da fila'::text as origem,
+    f.id as enfermo_id
   from fila f
   join quartas_livres q on q.posicao = f.posicao
   cross join contagem c
-  where c.total < 3 and f.posicao <= 3 - c.total
-)
-select data_visita, horario, enfermo_nome, endereco_completo, origem
-from (
+  where f.posicao <= greatest(0, 3 - c.total)
+),
+agenda_final as (
   select data_visita, horario, enfermo_nome, endereco_completo, origem from agendadas
   union all
   select data_visita, horario, enfermo_nome, endereco_completo, origem from previstas
-) agenda
+)
+select data_visita, horario, enfermo_nome, endereco_completo, origem
+from agenda_final
 order by data_visita, horario nulls last
 limit 3;
 
