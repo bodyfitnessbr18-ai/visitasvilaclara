@@ -1,6 +1,8 @@
 -- Agenda pública: até 3 visitas, completando com previsões da fila.
 -- Uma pessoa por quarta-feira; agendamentos existentes ocupam sua data.
-create or replace view public.visitas_publicas
+drop view if exists public.visitas_publicas;
+
+create view public.visitas_publicas
 with (security_barrier = true, security_invoker = false)
 as
 with
