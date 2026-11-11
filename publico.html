@@ -47,7 +47,8 @@ async function carregar(){
  const {data,error}=await db.from("visitas_publicas").select("id,data_visita,horario,enfermo_nome,endereco_completo").gte("data_visita",hojeISO).order("data_visita",{ascending:true}).order("horario",{ascending:true}).limit(3);
  if(error){el.innerHTML='<div class="card error">Não foi possível carregar a agenda. A configuração de acesso público ainda pode estar pendente.</div>';return}
  if(!data?.length){el.innerHTML='<div class="card empty">Não há próximas visitas agendadas no momento.</div>';return}
- el.innerHTML=data.map((v,i)=>'<article class="card visit '+(i===0?'nearest':'')+'">'+(i===0?'<div class="flag">★ Visita mais próxima</div>':'')+'<h2 class="name">'+esc(v.enfermo_nome)+'</h2><div class="date">'+dataBR(v.data_visita)+(v.horario?' · '+esc(v.horario):'')+'</div>'+(v.endereco_completo?'<p class="address">'+esc(v.endereco_completo)+'</p><a class="map" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(v.endereco_completo)+'">Ver endereço no mapa</a>':'<p class="address">Endereço não cadastrado.</p>')+'</article>').join("");
+ const card=(v,i)=>'<article class="card visit '+(i===0?'nearest':'')+'">'+(i===0?'<div class="flag">★ Próxima visita</div>':'')+'<h2 class="name">'+esc(v.enfermo_nome)+'</h2><div class="date">'+dataBR(v.data_visita)+(v.horario?' · '+esc(v.horario):'')+'</div>'+(v.endereco_completo?'<p class="address">'+esc(v.endereco_completo)+'</p><a class="map" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(v.endereco_completo)+'">Ver endereço no mapa</a>':'<p class="address">Endereço não cadastrado.</p>')+'</article>';
+ el.innerHTML=card(data[0],0)+(data.length>1?'<h2 style="font:700 20px Lora,serif;margin:24px 4px 10px">Próximas visitas</h2>'+data.slice(1).map((v,i)=>card(v,i+1)).join(""):'');
 }
 document.getElementById("refresh").addEventListener("click",carregar);
 carregar();
