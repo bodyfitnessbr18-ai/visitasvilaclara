@@ -1,0 +1,56 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="theme-color" content="#176b5b">
+<title>Próximas visitas · CCB Vila Clara</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--green:#176b5b;--soft:#e8f3ef;--ink:#24332f;--muted:#71807a;--line:#e3eae6;--paper:#f5f8f6}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Nunito,Arial,sans-serif}
+header{background:linear-gradient(120deg,#155b50,#247b68);color:white;padding:34px 20px 30px;text-align:center}
+header .symbol{font-size:28px;margin-bottom:8px}header h1{font:700 clamp(24px,5vw,34px) Lora,serif;margin:0 0 8px}header p{margin:0;opacity:.88}
+main{max-width:760px;margin:24px auto;padding:0 16px 40px}
+.intro{text-align:center;color:var(--muted);font-size:14px;margin:0 0 20px}
+.card{background:white;border:1px solid var(--line);border-radius:18px;padding:18px;margin:0 0 14px;box-shadow:0 5px 22px #173d300c}
+.visit{padding:18px}.visit.nearest{background:#e8f3ef;border:2px solid #a9d0bf;box-shadow:0 8px 25px #176b5b16}
+.flag{font-size:12px;font-weight:900;letter-spacing:.6px;text-transform:uppercase;color:var(--green);margin-bottom:9px}
+.name{font:700 21px Lora,serif;margin:0 0 8px}.date{font-size:16px;font-weight:800;color:var(--green)}
+.address{color:#53635d;font-size:14px;line-height:1.5;margin:12px 0 0}
+button,.map{display:inline-flex;align-items:center;justify-content:center;border:0;border-radius:10px;padding:11px 15px;background:var(--green);color:white;font:800 14px Nunito;text-decoration:none;cursor:pointer;margin-top:14px}
+.map:focus,button:focus{outline:3px solid #c7a45b}
+.empty,.error{text-align:center;padding:30px 18px;color:var(--muted)}.error{color:#9a3d3d}
+.foot{text-align:center;color:#84918b;font-size:12px;margin:25px 0 0}
+.refresh{display:block;margin:0 auto 18px;background:#e1eee8;color:var(--green)}
+</style>
+</head>
+<body>
+<header><div class="symbol">✦</div><h1>Próximas visitas</h1><p>CCB · Vila Clara</p></header>
+<main>
+<p class="intro">Acompanhe as três próximas visitas agendadas e consulte o endereço para chegar.</p>
+<button class="refresh" id="refresh">↻ Atualizar visitas</button>
+<div id="visitas"><div class="empty">Carregando agenda...</div></div>
+<p class="foot">Informações para organização das visitas · CCB Vila Clara</p>
+</main>
+<script>
+const SUPABASE_URL = "https://jicrlejfpcvzneaydyfw.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_cwBdkSD65na9TlhtcECy5A_9IlTBsfP";
+const db = window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+const el=document.getElementById("visitas");
+const esc=s=>String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]));
+function dataBR(s){const [y,m,d]=s.slice(0,10).split("-");return d+"/"+m+"/"+y}
+async function carregar(){
+ el.innerHTML='<div class="empty">Atualizando agenda...</div>';
+ const hoje=new Date();const hojeISO=[hoje.getFullYear(),String(hoje.getMonth()+1).padStart(2,"0"),String(hoje.getDate()).padStart(2,"0")].join("-");
+ const {data,error}=await db.from("visitas_publicas").select("id,data_visita,horario,enfermo_nome,endereco_completo").gte("data_visita",hojeISO).order("data_visita",{ascending:true}).order("horario",{ascending:true}).limit(3);
+ if(error){el.innerHTML='<div class="card error">Não foi possível carregar a agenda. A configuração de acesso público ainda pode estar pendente.</div>';return}
+ if(!data?.length){el.innerHTML='<div class="card empty">Não há próximas visitas agendadas no momento.</div>';return}
+ el.innerHTML=data.map((v,i)=>'<article class="card visit '+(i===0?'nearest':'')+'">'+(i===0?'<div class="flag">★ Visita mais próxima</div>':'')+'<h2 class="name">'+esc(v.enfermo_nome)+'</h2><div class="date">'+dataBR(v.data_visita)+(v.horario?' · '+esc(v.horario):'')+'</div>'+(v.endereco_completo?'<p class="address">'+esc(v.endereco_completo)+'</p><a class="map" target="_blank" rel="noopener" href="https://www.google.com/maps/search/?api=1&query='+encodeURIComponent(v.endereco_completo)+'">Ver endereço no mapa</a>':'<p class="address">Endereço não cadastrado.</p>')+'</article>').join("");
+}
+document.getElementById("refresh").addEventListener("click",carregar);
+carregar();
+</script>
+</body>
+</html>
