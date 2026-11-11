@@ -1,8 +1,6 @@
 -- Agenda pública: até 3 visitas, completando com previsões da fila.
 -- Uma pessoa por quarta-feira; agendamentos existentes ocupam sua data.
-drop view if exists public.visitas_publicas cascade;
-
-create view public.visitas_publicas
+create view public.agenda_publica_v2
 with (security_barrier = true, security_invoker = false)
 as
 with
@@ -108,8 +106,8 @@ from agenda_final
 order by data_visita, horario nulls last
 limit 3;
 
-revoke all on table public.visitas_publicas from public;
+revoke all on table public.agenda_publica_v2 from public;
 grant usage on schema public to anon;
-grant select on table public.visitas_publicas to anon;
+grant select on table public.agenda_publica_v2 to anon;
 revoke all on table public.enfermos from anon;
 revoke all on table public.visitas from anon;
