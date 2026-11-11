@@ -1,0 +1,127 @@
+<!doctype html>
+<html lang="pt-BR">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Visitas aos Enfermos · CCB Vila Clara</title>
+<script src="https://cdn.jsdelivr.net/npm/@supabase/supabase-js@2"></script>
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link href="https://fonts.googleapis.com/css2?family=Lora:wght@500;600;700&family=Nunito:wght@400;600;700;800&display=swap" rel="stylesheet">
+<style>
+:root{--green:#176b5b;--green2:#e8f3ef;--ink:#24332f;--muted:#71807a;--line:#e3eae6;--paper:#f7faf8;--white:#fff;--red:#a33b3b}
+*{box-sizing:border-box}body{margin:0;background:var(--paper);color:var(--ink);font-family:Nunito,Arial,sans-serif}
+header{background:linear-gradient(120deg,#155b50,#247b68);color:white;padding:24px max(20px,calc((100% - 1120px)/2))}
+header h1{font:600 27px Lora,serif;margin:0 0 5px}header p{margin:0;opacity:.85}
+main{max-width:1120px;margin:24px auto;padding:0 18px}.tabs{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:20px}
+button,.tab{border:0;border-radius:10px;padding:10px 15px;font:800 14px Nunito;cursor:pointer}
+.tab{background:#e9f0ed;color:#416158}.tab.active{background:var(--green);color:white}
+button.primary{background:var(--green);color:white}button.light{background:var(--green2);color:var(--green)}button.danger{background:#faeaea;color:var(--red)}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(230px,1fr));gap:14px}.card{background:white;border:1px solid var(--line);border-radius:16px;padding:18px;box-shadow:0 4px 18px #173d3010}
+.card h2,.card h3{margin:0 0 12px;font-family:Lora,serif}.muted{color:var(--muted)}.big{font-size:30px;font-weight:800;color:var(--green)}
+.toolbar{display:flex;gap:10px;flex-wrap:wrap;align-items:center;margin:12px 0 16px}
+input,select,textarea{width:100%;padding:11px 12px;border:1px solid #d7e2dc;border-radius:9px;font:600 14px Nunito;background:white;color:var(--ink)}
+.toolbar input{max-width:340px}.field{margin:10px 0}.field label{display:block;font-size:13px;font-weight:800;margin-bottom:5px}
+.formgrid{display:grid;grid-template-columns:repeat(auto-fit,minmax(190px,1fr));gap:4px 12px}
+.item{padding:14px 0;border-bottom:1px solid var(--line)}.item:last-child{border:0}.item strong{display:block;font-size:16px}.actions{display:flex;gap:7px;flex-wrap:wrap;margin-top:10px}
+.pill{display:inline-block;border-radius:30px;padding:4px 9px;font-size:12px;font-weight:800;background:#e8f3ef;color:#176b5b}.pill.cancelada{background:#faeaea;color:#a33b3b}.pill.realizada{background:#e9edf9;color:#425a9b}
+.hidden{display:none!important}.notice{padding:12px 14px;border-radius:10px;background:#fff7df;color:#72591b;margin-bottom:15px;font-size:13px}
+.empty{padding:28px;text-align:center;color:var(--muted)}.row{display:flex;justify-content:space-between;gap:12px;align-items:flex-start}
+dialog{border:0;border-radius:16px;padding:22px;width:min(650px,calc(100% - 24px));box-shadow:0 15px 60px #0003}dialog::backdrop{background:#10251f88}
+footer{text-align:center;color:#82918a;font-size:12px;padding:30px}
+@media(max-width:600px){header h1{font-size:22px}.row{display:block}.toolbar input{max-width:none;width:100%}}
+</style>
+</head>
+<body>
+<header><h1>Visitas aos Enfermos</h1><p>CCB · Vila Clara</p></header>
+<main>
+<div class="notice">Ambiente inicial de testes. A consulta pública temporária do Supabase pode expor dados pessoais. Use somente dados fictícios até restringir o acesso.</div>
+<div class="tabs">
+<button class="tab active" data-view="inicio">Início</button><button class="tab" data-view="enfermos">Enfermos</button><button class="tab" data-view="visitas">Visitas</button><button class="tab" data-view="agendar">Agendar</button>
+<span style="flex:1"></span><button class="light" id="loginBtn">Entrar como administrador</button><button class="danger hidden" id="logoutBtn">Sair</button>
+</div>
+<section id="inicio" class="view">
+<div class="grid">
+<div class="card"><div class="muted">Enfermos cadastrados</div><div class="big" id="countEnfermos">—</div></div>
+<div class="card"><div class="muted">Visitas agendadas</div><div class="big" id="countVisitas">—</div></div>
+<div class="card"><div class="muted">Próxima visita</div><h3 id="proximaVisita">Carregando...</h3><div class="muted" id="proximaData"></div></div>
+</div>
+<div class="card" style="margin-top:14px"><h2>Bem-vindo</h2><p class="muted">Consulte os cadastros e acompanhe as visitas. O administrador pode cadastrar enfermos e organizar os agendamentos.</p></div>
+</section>
+<section id="enfermos" class="view hidden">
+<div class="row"><div><h2>Enfermos</h2><p class="muted">Lista de pessoas cadastradas para acompanhamento.</p></div><button class="primary admin-only hidden" onclick="novoEnfermo()">+ Cadastrar enfermo</button></div>
+<div class="toolbar"><input id="buscaEnfermo" placeholder="Buscar por nome, bairro ou cidade..." oninput="renderEnfermos()"></div>
+<div class="card" id="listaEnfermos"></div>
+</section>
+<section id="visitas" class="view hidden">
+<div class="row"><div><h2>Visitas</h2><p class="muted">Agenda e histórico das visitas.</p></div><button class="primary admin-only hidden" onclick="novaVisita()">+ Agendar visita</button></div>
+<div class="toolbar"><select id="filtroStatus" onchange="renderVisitas()" style="max-width:220px"><option value="">Todos os status</option><option value="agendada">Agendada</option><option value="realizada">Realizada</option><option value="cancelada">Cancelada</option></select></div>
+<div class="card" id="listaVisitas"></div>
+</section>
+<section id="agendar" class="view hidden">
+<div class="card"><h2>Agendar uma visita</h2><p class="muted">O agendamento e as alterações são restritos ao administrador.</p><div id="agendarConteudo"></div></div>
+</section>
+</main>
+<footer>Visitas aos Enfermos · CCB Vila Clara</footer>
+
+<dialog id="dlgEnfermo"><form id="formEnfermo"><h2 id="tituloEnfermo">Cadastrar enfermo</h2><input type="hidden" id="enfermoId">
+<div class="formgrid">
+<div class="field"><label>Nome completo *</label><input id="eNome" required></div>
+<div class="field"><label>Telefone</label><input id="eTelefone"></div>
+<div class="field"><label>Endereço</label><input id="eEndereco"></div>
+<div class="field"><label>Número</label><input id="eNumero"></div>
+<div class="field"><label>Complemento</label><input id="eComplemento"></div>
+<div class="field"><label>Bairro</label><input id="eBairro"></div>
+<div class="field"><label>Cidade</label><input id="eCidade"></div>
+<div class="field"><label>Responsável</label><input id="eResponsavel"></div>
+</div><div class="field"><label>Observações</label><textarea id="eObs" rows="3"></textarea></div>
+<div class="actions"><button class="primary" type="submit">Salvar</button><button type="button" class="light" onclick="dlgEnfermo.close()">Cancelar</button></div></form></dialog>
+
+<dialog id="dlgVisita"><form id="formVisita"><h2>Agendar visita</h2><input type="hidden" id="visitaId">
+<div class="field"><label>Enfermo *</label><select id="vEnfermo" required></select></div>
+<div class="formgrid"><div class="field"><label>Data *</label><input id="vData" type="date" required></div><div class="field"><label>Horário</label><input id="vHora" type="time"></div></div>
+<div class="field"><label>Visitante</label><input id="vVisitante"></div>
+<div class="field"><label>Status</label><select id="vStatus"><option value="agendada">Agendada</option><option value="realizada">Realizada</option><option value="cancelada">Cancelada</option></select></div>
+<div class="field"><label>Observações</label><textarea id="vObs" rows="3"></textarea></div>
+<div class="actions"><button class="primary" type="submit">Salvar visita</button><button type="button" class="light" onclick="dlgVisita.close()">Cancelar</button></div></form></dialog>
+
+<dialog id="dlgLogin"><form id="formLogin"><h2>Acesso do administrador</h2><div class="field"><label>E-mail</label><input id="loginEmail" type="email" required></div><div class="field"><label>Senha</label><input id="loginSenha" type="password" required></div><div class="actions"><button class="primary" type="submit">Entrar</button><button type="button" class="light" onclick="dlgLogin.close()">Cancelar</button></div></form></dialog>
+
+<script>
+const SUPABASE_URL = "COLOCAR_PROJECT_URL";
+const SUPABASE_PUBLISHABLE_KEY = "COLOCAR_PUBLISHABLE_KEY";
+let db=null, admin=false, enfermos=[], visitas=[];
+const $=id=>document.getElementById(id);
+function msg(e){alert(e?.message||String(e))}
+function dataBR(s){if(!s)return "";let [y,m,d]=s.slice(0,10).split("-");return `${d}/${m}/${y}`}
+function esc(s){return String(s??"").replace(/[&<>"']/g,c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;","'":"&#39;"}[c]))}
+function mudarTela(view){document.querySelectorAll(".view").forEach(x=>x.classList.toggle("hidden",x.id!==view));document.querySelectorAll(".tab").forEach(x=>x.classList.toggle("active",x.dataset.view===view));if(view==="agendar")renderAgendar()}
+document.querySelectorAll(".tab").forEach(b=>b.onclick=()=>mudarTela(b.dataset.view));
+function atualizarPermissoes(){document.querySelectorAll(".admin-only").forEach(x=>x.classList.toggle("hidden",!admin));$("loginBtn").classList.toggle("hidden",admin);$("logoutBtn").classList.toggle("hidden",!admin)}
+async function iniciar(){
+ if(SUPABASE_URL.startsWith("COLOCAR")||SUPABASE_PUBLISHABLE_KEY.startsWith("COLOCAR")){ $("listaEnfermos").innerHTML='<div class="empty">Configure a URL e a chave pública do Supabase no arquivo index.html para conectar o sistema.</div>'; $("listaVisitas").innerHTML='<div class="empty">Aguardando configuração do Supabase.</div>'; $("agendarConteudo").textContent="Configure o Supabase para começar."; $("countEnfermos").textContent="0";$("countVisitas").textContent="0";return}
+ db=window.supabase.createClient(SUPABASE_URL,SUPABASE_PUBLISHABLE_KEY);
+ db.auth.onAuthStateChange(()=>verificarAdmin()); await verificarAdmin(); await carregar();
+}
+async function verificarAdmin(){if(!db)return;let {data:{user}}=await db.auth.getUser();admin=false;if(user){let {data}=await db.from("perfis").select("tipo").eq("id",user.id).maybeSingle();admin=data?.tipo==="admin"}atualizarPermissoes()}
+async function carregar(){if(!db)return;let [a,b]=await Promise.all([db.from("enfermos").select("*").eq("ativo",true).order("nome"),db.from("visitas").select("*, enfermos(nome,telefone,endereco,bairro,cidade)").order("data_visita",{ascending:true})]);if(a.error||b.error){msg(a.error||b.error);return}enfermos=a.data||[];visitas=b.data||[];renderEnfermos();renderVisitas();renderInicio();renderAgendar()}
+function renderInicio(){ $("countEnfermos").textContent=enfermos.length;$("countVisitas").textContent=visitas.filter(v=>v.status==="agendada").length;let prox=visitas.find(v=>v.status==="agendada"&&v.data_visita>=new Date().toISOString().slice(0,10));$("proximaVisita").textContent=prox?.enfermos?.nome||"Nenhuma agendada";$("proximaData").textContent=prox?`${dataBR(prox.data_visita)} ${prox.horario||""}`:""}
+function renderEnfermos(){let q=($("buscaEnfermo")?.value||"").toLowerCase();let arr=enfermos.filter(e=>[e.nome,e.bairro,e.cidade].join(" ").toLowerCase().includes(q));$("listaEnfermos").innerHTML=arr.length?arr.map(e=>`<div class="item"><div class="row"><div><strong>${esc(e.nome)}</strong><span class="muted">${esc([e.bairro,e.cidade].filter(Boolean).join(" · "))}</span><div class="muted">${esc(e.telefone||"")}</div></div></div>${e.endereco?`<div class="muted">${esc([e.endereco,e.numero,e.complemento].filter(Boolean).join(", "))}</div>`:""}${e.observacoes?`<p>${esc(e.observacoes)}</p>`:""}<div class="actions">${e.telefone?`<button class="light" onclick="whats('${esc(e.telefone)}','A paz de Deus!')">WhatsApp</button>`:""}${e.endereco?`<button class="light" onclick="mapa('${esc([e.endereco,e.numero,e.bairro,e.cidade].filter(Boolean).join(", "))}')">Google Maps</button>`:""}${admin?`<button class="light" onclick="editarEnfermo('${e.id}')">Editar</button><button class="danger" onclick="excluirEnfermo('${e.id}')">Excluir</button>`:""}</div></div>`).join(""):'<div class="empty">Nenhum enfermo encontrado.</div>'}
+function renderVisitas(){let f=$("filtroStatus").value;let arr=visitas.filter(v=>!f||v.status===f);$("listaVisitas").innerHTML=arr.length?arr.map(v=>`<div class="item"><div class="row"><div><strong>${esc(v.enfermos?.nome||"Enfermo não identificado")}</strong><span class="muted">${dataBR(v.data_visita)} ${esc(v.horario||"")}</span></div><span class="pill ${v.status}">${v.status}</span></div><div class="muted">Visitante: ${esc(v.visitante||"Não informado")}</div>${v.observacoes?`<p>${esc(v.observacoes)}</p>`:""}<div class="actions">${v.enfermos?.telefone?`<button class="light" onclick="whats('${esc(v.enfermos.telefone)}','A paz de Deus! Confirmando nossa visita.')">WhatsApp</button>`:""}${admin?`<button class="light" onclick="editarVisita('${v.id}')">Editar</button><button class="danger" onclick="excluirVisita('${v.id}')">Excluir</button>`:""}</div></div>`).join(""):'<div class="empty">Nenhuma visita encontrada.</div>'}
+function renderAgendar(){$("agendarConteudo").innerHTML=admin?'<p>Use o botão abaixo para cadastrar uma visita.</p><button class="primary" onclick="novaVisita()">+ Agendar visita</button>':'<p class="muted">Somente o administrador pode criar ou alterar agendamentos. Para consultar, acesse a aba Visitas.</p>'}
+function novoEnfermo(){if(!admin)return; $("formEnfermo").reset();$("enfermoId").value="";$("tituloEnfermo").textContent="Cadastrar enfermo";$("dlgEnfermo").showModal()}
+function editarEnfermo(id){let e=enfermos.find(x=>x.id===id);if(!e)return;novoEnfermo();$("enfermoId").value=id;$("tituloEnfermo").textContent="Editar enfermo";$("eNome").value=e.nome||"";$("eTelefone").value=e.telefone||"";$("eEndereco").value=e.endereco||"";$("eNumero").value=e.numero||"";$("eComplemento").value=e.complemento||"";$("eBairro").value=e.bairro||"";$("eCidade").value=e.cidade||"";$("eResponsavel").value=e.responsavel||"";$("eObs").value=e.observacoes||""}
+$("formEnfermo").onsubmit=async ev=>{ev.preventDefault();let id=$("enfermoId").value;let obj={nome:$("eNome").value,telefone:$("eTelefone").value,endereco:$("eEndereco").value,numero:$("eNumero").value,complemento:$("eComplemento").value,bairro:$("eBairro").value,cidade:$("eCidade").value,responsavel:$("eResponsavel").value,observacoes:$("eObs").value,ativo:true};let r=id?await db.from("enfermos").update(obj).eq("id",id):await db.from("enfermos").insert(obj);if(r.error)return msg(r.error);$("dlgEnfermo").close();await carregar()}
+async function excluirEnfermo(id){if(!confirm("Excluir este cadastro?"))return;let r=await db.from("enfermos").update({ativo:false}).eq("id",id);if(r.error)return msg(r.error);await carregar()}
+function preencherSelect(){ $("vEnfermo").innerHTML=enfermos.map(e=>`<option value="${e.id}">${esc(e.nome)}</option>`).join("")}
+function novaVisita(){if(!admin)return;$("formVisita").reset();$("visitaId").value="";preencherSelect();$("vData").value=new Date().toISOString().slice(0,10);$("dlgVisita").showModal()}
+function editarVisita(id){let v=visitas.find(x=>x.id===id);if(!v)return;novaVisita();$("visitaId").value=id;$("vEnfermo").value=v.enfermo_id;$("vData").value=v.data_visita;$("vHora").value=v.horario||"";$("vVisitante").value=v.visitante||"";$("vStatus").value=v.status;$("vObs").value=v.observacoes||""}
+$("formVisita").onsubmit=async ev=>{ev.preventDefault();let id=$("visitaId").value;let obj={enfermo_id:$("vEnfermo").value,data_visita:$("vData").value,horario:$("vHora").value||null,visitante:$("vVisitante").value,status:$("vStatus").value,observacoes:$("vObs").value};let r=id?await db.from("visitas").update(obj).eq("id",id):await db.from("visitas").insert(obj);if(r.error)return msg(r.error);$("dlgVisita").close();await carregar()}
+async function excluirVisita(id){if(!confirm("Excluir este agendamento?"))return;let r=await db.from("visitas").delete().eq("id",id);if(r.error)return msg(r.error);await carregar()}
+$("loginBtn").onclick=()=>$("dlgLogin").showModal();
+$("formLogin").onsubmit=async ev=>{ev.preventDefault();let r=await db.auth.signInWithPassword({email:$("loginEmail").value,password:$("loginSenha").value});if(r.error)return msg(r.error);$("dlgLogin").close();await verificarAdmin();await carregar();if(!admin)alert("Esta conta não tem perfil de administrador.")};
+$("logoutBtn").onclick=async()=>{await db.auth.signOut();await verificarAdmin();await carregar()};
+function whats(t,m){let n=t.replace(/\D/g,"");if(n.length<=11)n="55"+n;window.open("https://wa.me/"+n+"?text="+encodeURIComponent(m),"_blank")}
+function mapa(a){window.open("https://www.google.com/maps/search/?api=1&query="+encodeURIComponent(a),"_blank")}
+iniciar();
+</script>
+</body></html>
