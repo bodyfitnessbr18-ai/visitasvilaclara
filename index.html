@@ -87,8 +87,8 @@ footer{text-align:center;color:#82918a;font-size:12px;padding:30px}
 <dialog id="dlgLogin"><form id="formLogin"><h2>Acesso do administrador</h2><div class="field"><label>E-mail</label><input id="loginEmail" type="email" required></div><div class="field"><label>Senha</label><input id="loginSenha" type="password" required></div><div class="actions"><button class="primary" type="submit">Entrar</button><button type="button" class="light" onclick="dlgLogin.close()">Cancelar</button></div></form></dialog>
 
 <script>
-const SUPABASE_URL = "COLOCAR_PROJECT_URL";
-const SUPABASE_PUBLISHABLE_KEY = "COLOCAR_PUBLISHABLE_KEY";
+const SUPABASE_URL = "https://xjgbseucsufdcjouimcx.supabase.co";
+const SUPABASE_PUBLISHABLE_KEY = "sb_publishable_QHK2z30eYMEN38CLSFA2rg_2MJt2E3a";
 let db=null, admin=false, enfermos=[], visitas=[];
 const $=id=>document.getElementById(id);
 function msg(e){alert(e?.message||String(e))}
